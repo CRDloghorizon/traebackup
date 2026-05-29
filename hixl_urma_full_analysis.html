@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A5代际HIXL系统 - 四种通信模式全链路分析 (URMA CTP)</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --bg2: #161b22;
+            --bg3: #21262d;
+            --bg4: #30363d;
+            --fg: #c9d1d9;
+            --fg2: #8b949e;
+            --fg3: #58a6ff;
+            --accent-d2d: #f78166;
+            --accent-h2d: #d2a8ff;
+            --accent-d2h: #7ee787;
+            --accent-h2h: #ffa657;
+            --accent-init: #79c0ff;
+            --accent-ctrl: #a5d6ff;
+            --accent-data: #ff7b72;
+            --accent-hcomm: #f0883e;
+            --accent-urma: #56d364;
+            --line: #30363d;
+            --radius: 8px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; line-height:1.6; }
+        a { color:var(--fg3); text-decoration:none; }
+        a:hover { text-decoration:underline; }
+        nav { position:fixed; left:0; top:0; width:280px; height:100vh; background:var(--bg2); border-right:1px solid var(--line); overflow-y:auto; z-index:100; padding:20px 0; }
+        nav h1 { font-size:16px; font-weight:600; padding:0 20px 16px; color:var(--fg3); border-bottom:1px solid var(--line); }
+        nav ul { list-style:none; padding:8px 0; }
+        nav li a { display:block; padding:6px 20px; font-size:13px; color:var(--fg2); transition:color .2s; }
+        nav li a:hover, nav li a.active { color:var(--fg); background:var(--bg3); text-decoration:none; }
+        nav .sec { font-size:11px; text-transform:uppercase; letter-spacing:.5px; padding:12px 20px 4px; color:var(--fg2); font-weight:600; }
+        main { margin-left:280px; padding:40px 48px; max-width:1200px; }
+        h2 { font-size:26px; font-weight:600; margin:48px 0 20px; padding-bottom:8px; border-bottom:2px solid var(--line); color:var(--fg); }
+        h3 { font-size:20px; font-weight:600; margin:32px 0 14px; color:var(--fg); }
+        h4 { font-size:16px; font-weight:600; margin:24px 0 10px; color:var(--fg2); }
+        p { margin:8px 0; font-size:15px; }
+        .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; margin:0 4px; }
+        .badge-d2d { background:var(--accent-d2d); color:#000; }
+        .badge-h2d { background:var(--accent-h2d); color:#000; }
+        .badge-d2h { background:var(--accent-d2h); color:#000; }
+        .badge-h2h { background:var(--accent-h2h); color:#000; }
+        .badge-init { background:var(--accent-init); color:#000; }
+        .badge-ctrl { background:var(--accent-ctrl); color:#000; }
+        .badge-data { background:var(--accent-data); color:#000; }
+        .badge-hcomm { background:var(--accent-hcomm); color:#000; }
+        .badge-urma { background:var(--accent-urma); color:#000; }
+        .chain { margin:16px 0; }
+        .chain-node { position:relative; padding:10px 16px 10px 32px; margin:2px 0; border-radius:var(--radius); background:var(--bg2); border-left:3px solid var(--line); font-size:13px; cursor:default; }
+        .chain-node::before { content:''; position:absolute; left:8px; top:20px; width:8px; height:8px; border-radius:50%; background:var(--fg2); }
+        .chain-node.l2 { margin-left:24px; background:var(--bg3); }
+        .chain-node.l3 { margin-left:48px; background:var(--bg4); }
+        .chain-node.l4 { margin-left:72px; background:var(--bg4); font-size:12px; }
+        .chain-node .fn { color:var(--fg3); font-weight:600; font-family:'SF Mono',Consolas,monospace; font-size:12px; }
+        .chain-node .file { color:var(--fg2); font-size:11px; margin-left:8px; font-family:'SF Mono',Consolas,monospace; }
+        .chain-node .desc { color:var(--fg2); font-size:12px; display:block; margin-top:2px; }
+        .chain-node .param { color:#f0b67c; font-family:'SF Mono',Consolas,monospace; font-size:12px; }
+        .layer-tag { display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; margin-right:6px; }
+        .layer-hixl { background:#1f2a38; color:var(--accent-init); border:1px solid var(--accent-init); }
+        .layer-hcomm { background:#2a2418; color:var(--accent-hcomm); border:1px solid var(--accent-hcomm); }
+        .layer-urma { background:#1a2818; color:var(--accent-urma); border:1px solid var(--accent-urma); }
+        table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+        th { background:var(--bg3); text-align:left; padding:10px 14px; font-weight:600; border-bottom:2px solid var(--line); }
+        td { padding:10px 14px; border-bottom:1px solid var(--line); }
+        tr:hover td { background:var(--bg2); }
+        pre { background:var(--bg2); border:1px solid var(--line); border-radius:var(--radius); padding:16px; overflow-x:auto; font-size:13px; line-height:1.5; margin:12px 0; }
+        code { font-family:'SF Mono',Consolas,monospace; font-size:13px; background:var(--bg3); padding:2px 6px; border-radius:4px; }
+        pre code { background:none; padding:0; }
+        .section-header { margin:48px 0 24px; }
+        .top-bar { position:sticky; top:0; background:var(--bg); padding:12px 0; z-index:10; margin-bottom:20px; }
+        .top-bar .legend { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+        .top-bar .legend-item { display:flex; align-items:center; gap:4px; font-size:13px; color:var(--fg2); }
+        .top-bar .dot { width:10px; height:10px; border-radius:50%; }
+        details { margin:12px 0; }
+        details summary { cursor:pointer; font-weight:600; padding:8px 12px; background:var(--bg2); border-radius:var(--radius); font-size:15px; color:var(--fg3); list-style:none; }
+        details summary::before { content:'▶ '; font-size:12px; }
+        details[open] summary::before { content:'▼ '; }
+        details .content { padding:12px 16px; }
+        .diagram { margin:20px 0; text-align:center; }
+        .diagram svg { max-width:100%; }
+        .mode-card { background:var(--bg2); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin:16px 0; }
+        .mode-card h3 { margin-top:0; }
+        .api-table th { background:var(--bg4); }
+        .param-table th { font-family:'SF Mono',Consolas,monospace; }
+        .highlight-d2d { border-left:4px solid var(--accent-d2d); }
+        .highlight-h2d { border-left:4px solid var(--accent-h2d); }
+        .highlight-d2h { border-left:4px solid var(--accent-d2h); }
+        .highlight-h2h { border-left:4px solid var(--accent-h2h); }
+        .warning { background:#2a1a1a; border:1px solid #f78166; padding:12px 16px; border-radius:var(--radius); margin:16px 0; }
+        .product-badge { display:inline-block; padding:4px 12px; border-radius:6px; font-size:12px; font-weight:700; margin-right:8px; background:#1a2a1a; color:#56d364; border:1px solid #56d364; }
+        @media (max-width:768px) {
+            nav { display:none; }
+            main { margin-left:0; padding:20px; }
+        }
+    </style>
+</head>
+<body>
+<nav>
+    <h1>HIXL-URMA 四种通信模式全链路分析</h1>
+    <ul>
+        <li class="sec">概览</li>
+        <li><a href="#scope">适用范围</a></li>
+        <li><a href="#arch">总体架构</a></li>
+        <li><a href="#modes">四种通信模式简介</a></li>
+        
+        <li class="sec">D2D模式</li>
+        <li><a href="#d2d-init">初始化流程</a></li>
+        <li><a href="#d2d-data">数据传输全链路</a></li>
+        <li><a href="#d2d-api">API详细分析</a></li>
+        
+        <li class="sec">H2D模式</li>
+        <li><a href="#h2d-init">初始化流程</a></li>
+        <li><a href="#h2d-data">数据传输全链路</a></li>
+        <li><a href="#h2d-api">API详细分析</a></li>
+        
+        <li class="sec">D2H模式</li>
+        <li><a href="#d2h-init">初始化流程</a></li>
+        <li><a href="#d2h-data">数据传输全链路</a></li>
+        <li><a href="#d2h-api">API详细分析</a></li>
+        
+        <li class="sec">H2H模式</li>
+        <li><a href="#h2h-init">初始化流程</a></li>
+        <li><a href="#h2h-data">数据传输全链路</a></li>
+        <li><a href="#h2h-api">API详细分析</a></li>
+        
+        <li class="sec">对比分析</li>
+        <li><a href="#compare">四种模式对比表</a></li>
+        <li><a href="#summary">总结</a></li>
+    </ul>
+</nav>
+
+<main>
+    <div class="top-bar">
+        <div class="legend">
+            <span style="font-weight:600;color:var(--fg3);">图例:</span>
+            <span class="layer-hixl">HIXL</span>
+            <span class="layer-hcomm">HCOMM</span>
+            <span class="layer-urma">URMA</span>
+            <span class="badge badge-d2d">D2D</span>
+            <span class="badge badge-h2d">H2D</span>
+            <span class="badge badge-d2h">D2H</span>
+            <span class="badge badge-h2h">H2H</span>
+        </div>
+    </div>
+
+    <section id="scope">
+        <h2>适用范围与约束</h2>
+
+        <table>
+            <tr><th>约束项</th><th>说明</th></tr>
+            <tr><td>目标产品</td><td>Ascend 950PR 、Ascend 950DT </td></tr>
+            <tr><td>协议类型</td><td><strong>仅考虑 COMM_PROTOCOL_UBC_CTP</strong> (cfg = 7)</td></tr>
+            <tr><td>端点类型</td><td>ENDPOINT_LOC_TYPE_DEVICE (Device) 和 ENDPOINT_LOC_TYPE_HOST (Host)</td></tr>
+        </table>
+    </section>
+
+    <section id="arch">
+        <h2>总体架构</h2>
+        <p>A5代际HIXL系统的数据传输栈分为三层，每层各司其职：</p>
+        <div class="diagram">
+            <svg width="1000" height="400" viewBox="0 0 1000 400">
+                <defs>
+                    <linearGradient id="g-hixl" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#1f2a38"/>
+                        <stop offset="100%" stop-color="#16212e"/>
+                    </linearGradient>
+                    <linearGradient id="g-hcomm" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#2a2418"/>
+                        <stop offset="100%" stop-color="#1f1a10"/>
+                    </linearGradient>
+                    <linearGradient id="g-urma" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#1a2818"/>
+                        <stop offset="100%" stop-color="#121e10"/>
+                    </linearGradient>
+                </defs>
+                
+                <rect x="40" y="30" width="920" height="90" rx="10" fill="url(#g-hixl)" stroke="#79c0ff" stroke-width="2"/>
+                <text x="60" y="56" fill="#79c0ff" font-size="16" font-weight="bold">HIXL CS Engine</text>
+                <text x="60" y="78" fill="#8b949e" font-size="13">hixl/include/cs/hixl_cs.h · hixl/src/hixl/cs/</text>
+                <text x="60" y="98" fill="#c9d1d9" font-size="13">HixlCSClientBatchPutAsync → BatchTransferAsync</text>
+                <text x="60" y="116" fill="#8b949e" font-size="12">职责: Client-Server传输框架，管理Endpoint/Channel/MemStore，分发Host/Device路径</text>
+                
+                <line x1="500" y1="120" x2="500" y2="145" stroke="#8b949e" stroke-width="2"/>
+                
+                <rect x="40" y="148" width="920" height="90" rx="10" fill="url(#g-hcomm)" stroke="#f0883e" stroke-width="2"/>
+                <text x="60" y="174" fill="#f0883e" font-size="16" font-weight="bold">HCOMM 通信中间件</text>
+                <text x="60" y="196" fill="#8b949e" font-size="13">hcomm/include/hcomm_res_defs.h · hcomm/src/framework/next/</text>
+                <text x="60" y="216" fill="#c9d1d9" font-size="13">HcommEndpointCreate · HcommChannelCreate · HcommBatchTransferOnThread</text>
+                <text x="60" y="234" fill="#8b949e" font-size="12">职责: 多引擎抽象(CPU/AICPU/CCU)，Channel类型路由，动态加载</text>
+                
+                <line x1="500" y1="238" x2="500" y2="263" stroke="#8b949e" stroke-width="2"/>
+                
+                <rect x="40" y="266" width="920" height="90" rx="10" fill="url(#g-urma)" stroke="#56d364" stroke-width="2"/>
+                <text x="60" y="292" fill="#56d364" font-size="16" font-weight="bold">URMA + UDMA 硬件驱动</text>
+                <text x="60" y="314" fill="#8b949e" font-size="13">urma/api.h · urma/dp_api.c · udma_u_jfs.c</text>
+                <text x="60" y="334" fill="#c9d1d9" font-size="13">urma_post_jetty_send_wr → udma_u_post_sq_wr → udma_write_dsqe</text>
+                <text x="60" y="352" fill="#8b949e" font-size="12">职责: Provider抽象(udma/bond)，Jetty/Segment管理，SQE构建，MMIO门铃通知硬件</text>
+            </svg>
+        </div>
+    </section>
+
+    <section id="modes">
+        <h2>四种通信模式简介</h2>
+        <table>
+            <tr>
+                <th>模式</th>
+                <th>全称</th>
+                <th>典型引擎</th>
+                <th>协议</th>
+                <th>特点</th>
+            </tr>
+            <tr>
+                <td><span class="badge badge-d2d">D2D</span></td>
+                <td>Device to Device</td>
+                <td>COMM_ENGINE_AICPU_TS (AICPU时间片)</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>Device间直接传输，最高性能</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-h2d">H2D</span></td>
+                <td>Host to Device</td>
+                <td>COMM_ENGINE_CPU → COMM_ENGINE_AICPU_TS</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>Host内存写入Device内存</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-d2h">D2H</span></td>
+                <td>Device to Host</td>
+                <td>COMM_ENGINE_AICPU_TS → COMM_ENGINE_CPU</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>Device内存写入Host内存</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-h2h">H2H</span></td>
+                <td>Host to Host</td>
+                <td>COMM_ENGINE_CPU (CPU)</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>Host间直接传输</td>
+            </tr>
+        </table>
+    </section>
+
+    <section id="d2d-init">
+        <h2><span class="badge badge-d2d">D2D</span> 模式 - 初始化与建链流程</h2>
+        
+        <h3>完整初始化流程</h3>
+        
+        <details open>
+            <summary>Server端初始化 (Device Endpoint)</summary>
+            <div class="content">
+                <div class="chain">
+                    <div class="chain-node">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServerCreate</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:78-79</span>
+                        <span class="desc">创建Server句柄入口API</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServer::Initialize</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_server.cc:130-158</span>
+                        <span class="desc">初始化Server，遍历Endpoint列表，注册消息处理器</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">EndpointStore::CreateEndpoint</span>
+                        <span class="file">hixl/src/hixl/proxy/hcomm/endpoint_store.h</span>
+                        <span class="desc">创建Endpoint存储对象</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">HcommEndpointCreate</span>
+                        <span class="file">hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:207-252</span>
+                        <span class="desc">HCOMM C接口，创建Endpoint</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">Endpoint::CreateEndpoint</span>
+                        <span class="file">hcomm/src/framework/next/comms/endpoints/endpoint.cc:28-82</span>
+                        <span class="desc">工厂方法，根据protocol/locType选择具体实现</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">UrmaEndpoint::UrmaEndpoint</span>
+                        <span class="file">hcomm/src/framework/next/comms/endpoints/urma_endpoint.cc:20-26</span>
+                        <span class="desc">构造UrmaEndpoint (仅UBC_CTP协议支持)</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">UrmaEndpoint::Init</span>
+                        <span class="file">hcomm/src/framework/next/comms/endpoints/urma_endpoint.cc:35-84</span>
+                        <span class="desc">初始化URMA上下文，获取设备物理ID，创建CCU通道池</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-urma">URMA</span>
+                        <span class="fn">urma_init</span>
+                        <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h</span>
+                        <span class="desc">URMA全局初始化，发现并注册UDMA Provider</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-urma">URMA</span>
+                        <span class="fn">urma_create_context</span>
+                        <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h:97</span>
+                        <span class="desc">创建URMA Context，参数: urma_device_t* dev, uint32_t eid_index</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-urma">URMA</span>
+                        <span class="fn">udma_u_create_context</span>
+                        <span class="file">umdk/src/urma/provider/udma/udma_u_main.c</span>
+                        <span class="desc">调用ioctl(UCMD_CTX_CREATE)，mmap DB页，创建UDMA上下文</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServer::InitTransFinishedFlag</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_server.cc:52-74</span>
+                        <span class="desc">初始化传输完成标志 (Host和Device)</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServer::RegisterHostTransFinishedFlag</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_server.cc:76-95</span>
+                        <span class="desc">posix_memalign分配Host标志页，注册到HCOMM</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServer::RegisterDeviceTransFinishedFlag</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_server.cc:97-127</span>
+                        <span class="desc">aclrtMalloc分配Device标志页，注册到HCOMM</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServerRegMem</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:89-90</span>
+                        <span class="desc">注册Server端内存供Client访问</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSServerListen</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:98</span>
+                        <span class="desc">启动Server监听，准备接受Client连接</span>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <details>
+            <summary>Client端初始化 (Device Endpoint)</summary>
+            <div class="content">
+                <div class="chain">
+                    <div class="chain-node">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClientCreate</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:122-123</span>
+                        <span class="desc">创建Client句柄入口API</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClient::Create</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:348-369</span>
+                        <span class="desc">初始化Client基础环境</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClient::InitBaseClient</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc</span>
+                        <span class="desc">记录server IP/port，初始化Endpoint</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClient::InitDeviceResource</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc</span>
+                        <span class="desc">aclrtGetDevice，初始化TransferPool (size=128)，预加载UB kernel</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClientRegMem</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:153</span>
+                        <span class="desc">注册Client端本地内存</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClientConnect</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:131</span>
+                        <span class="desc">发起与Server的同步连接</span>
+                    </div>
+                    <div class="chain-node l3">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClient::ConnectImpl</span>
+                        <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc</span>
+                        <span class="desc">TCP连接握手，交换Endpoint信息，创建Channel</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">HcommChannelCreate</span>
+                        <span class="file">hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:60-62</span>
+                        <span class="desc">创建Channel，协议必须是UBC_CTP</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">Channel::CreateChannel</span>
+                        <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/channel.cc:44-84</span>
+                        <span class="desc">工厂方法，选择AicpuTsUrmaChannel实现</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-hcomm">HCOMM</span>
+                        <span class="fn">AicpuTsUrmaChannel::Init</span>
+                        <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</span>
+                        <span class="desc">初始化AICPU TS URMA通道</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-urma">URMA</span>
+                        <span class="fn">urma_create_jetty</span>
+                        <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h</span>
+                        <span class="desc">创建Jetty (URMA通信端点)</span>
+                    </div>
+                    <div class="chain-node l4">
+                        <span class="layer-tag layer-urma">URMA</span>
+                        <span class="fn">urma_register_segment</span>
+                        <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h</span>
+                        <span class="desc">注册内存段，返回segment handle，用于RDMA读写</span>
+                    </div>
+                    <div class="chain-node l2">
+                        <span class="layer-tag layer-hixl">HIXL</span>
+                        <span class="fn">HixlCSClientGetRemoteMem</span>
+                        <span class="file">hixl/include/cs/hixl_cs.h:142-143</span>
+                        <span class="desc">获取Server端已注册内存列表，获取remote addr用于后续传输</span>
+                    </div>
+                </div>
+            </div>
+        </details>
+    </section>
+
+    <section id="d2d-data">
+        <h2><span class="badge badge-d2d">D2D</span> 模式 - 数据传输全链路</h2>
+        
+        <div class="mode-card highlight-d2d">
+            <h3>完整数据传输调用链 (Put操作)</h3>
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientBatchPutAsync</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:171-172</span>
+                    <span class="desc">批量异步写入API入口，参数: client_handle, list_num, desc_list, complete_handle</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1049-1071</span>
+                    <span class="desc">ValidateAddress，判断是Device Endpoint → 走Device路径</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferDeviceAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:865-923</span>
+                    <span class="desc">获取TransferPool slot，分配host_flag</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::AcquireSharedSlot</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:643-667</span>
+                    <span class="desc">从TransferPool获取可用slot (size=128)</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::AllocateDeviceDescBuf</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:770-778</span>
+                    <span class="desc">aclrtMalloc分配Device侧描述符buffer，memcpy到Device</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::LaunchDeviceChunkedKernels</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:755-768</span>
+                    <span class="desc">按kMaxKernelBatchSize=128分片，依次启动kernel</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BuildDeviceChunkParam</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:780-810</span>
+                    <span class="desc">构建HixlOneSideOpParam参数结构</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::LaunchDeviceKernel</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:826-863</span>
+                    <span class="desc">aclrtLaunchKernelWithConfig启动Device kernel (函数名: "HixlBatchPut")</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="badge badge-data">DEVICE KERNEL 执行</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HcommBatchTransferOnThread</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/device/aicpu_ts_urma_channel_kernel.cc</span>
+                    <span class="desc">AICPU TS引擎批量传输入口</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">UbTransportLiteImpl::ExecuteBatchTransfer</span>
+                    <span class="desc">遍历transfer descs，按transType分发 (PUT=WRITE, GET=READ)</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">AicpuTsUrmaChannel::Write</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</span>
+                    <span class="desc">AICPU TS URMA Channel写入操作</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">urma_post_jetty_send_wr</span>
+                    <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h:854</span>
+                    <span class="desc">参数: <span class="param">urma_jetty_t *jetty</span>, <span class="param">urma_jfs_wr_t *wr</span>, <span class="param">urma_jfs_wr_t **bad_wr</span></span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_u_post_sq_wr</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">加自旋锁，遍历WR链表，转换为SQE</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_u_post_one_wr</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">URMA opcode → UDMA opcode映射 (WRITE/READ/SEND)</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_set_sqe</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">构建SQE (Send Queue Element) 控制结构体</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_fill_write_sqe</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">WRITE操作: 填充src SGE, dst TID, rmt addr, len</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">UDMA_TO_DEVICE_BARRIER</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_common.h</span>
+                    <span class="desc">ARM dmb st存储屏障，确保SQE写入对硬件可见</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_write_dsqe / udma_update_sq_db</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">🔥 门铃通知硬件: DSQE优化路径 或 MMIO写入Producer Index</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::CheckStatus</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1120-1146</span>
+                    <span class="desc">轮询host_flag == kDeviceFlagDoneValue (1)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="d2d-api">
+        <h2><span class="badge badge-d2d">D2D</span> 模式 - API详细分析</h2>
+        
+        <h3>关键API接口</h3>
+        <table class="api-table">
+            <tr>
+                <th>层级</th>
+                <th>API名称</th>
+                <th>文件位置</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSServerCreate</code></td>
+                <td>hixl/include/cs/hixl_cs.h:78-79</td>
+                <td>创建Server实例</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSServerRegMem</code></td>
+                <td>hixl/include/cs/hixl_cs.h:89-90</td>
+                <td>Server注册内存</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSServerListen</code></td>
+                <td>hixl/include/cs/hixl_cs.h:98</td>
+                <td>启动Server监听</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientCreate</code></td>
+                <td>hixl/include/cs/hixl_cs.h:122-123</td>
+                <td>创建Client实例</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientConnect</code></td>
+                <td>hixl/include/cs/hixl_cs.h:131</td>
+                <td>发起Client连接</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientGetRemoteMem</code></td>
+                <td>hixl/include/cs/hixl_cs.h:142-143</td>
+                <td>获取Server端已注册内存</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientBatchPutAsync</code></td>
+                <td>hixl/include/cs/hixl_cs.h:171-172</td>
+                <td>批量异步写入</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientBatchGetAsync</code></td>
+                <td>hixl/include/cs/hixl_cs.h:182-183</td>
+                <td>批量异步读取</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hixl">HIXL</span></td>
+                <td><code>HixlCSClientQueryCompleteStatus</code></td>
+                <td>hixl/include/cs/hixl_cs.h:214-215</td>
+                <td>查询异步任务完成状态</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hcomm">HCOMM</span></td>
+                <td><code>HcommEndpointCreate</code></td>
+                <td>hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:207-252</td>
+                <td>创建Endpoint</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hcomm">HCOMM</span></td>
+                <td><code>HcommChannelCreate</code></td>
+                <td>hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:60-62</td>
+                <td>创建Channel</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hcomm">HCOMM</span></td>
+                <td><code>HcommRegisterMemory</code></td>
+                <td>hcomm/include/hcomm_api.h</td>
+                <td>注册内存段</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-hcomm">HCOMM</span></td>
+                <td><code>HcommBatchTransferOnThread</code></td>
+                <td>hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/device/aicpu_ts_urma_channel_kernel.cc</td>
+                <td>AICPU TS批量传输</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_init</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h</td>
+                <td>URMA全局初始化</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_create_context</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h:97</td>
+                <td>创建URMA上下文</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_create_jetty</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h</td>
+                <td>创建Jetty端点</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_register_segment</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h</td>
+                <td>注册内存段</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_post_jetty_send_wr</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h:854</td>
+                <td>发送WR到Jetty</td>
+            </tr>
+            <tr>
+                <td><span class="layer-tag layer-urma">URMA</span></td>
+                <td><code>urma_poll_jfc</code></td>
+                <td>umdk/src/urma/lib/urma/core/include/urma_api.h:932</td>
+                <td>轮询完成队列</td>
+            </tr>
+        </table>
+
+        <h3>urma_jfs_wr_t 参数结构</h3>
+        <details>
+            <summary>展开查看详细参数</summary>
+            <div class="content">
+                <pre><code>typedef struct urma_jfs_wr {
+    urma_wr_opcode_t opcode;      // 操作码: WRITE/READ/SEND
+    urma_jfs_sge_t *sgl;          // SGE (Scatter-Gather Element) 链表
+    uint32_t sge_count;           // SGE 数量
+    uint64_t wr_id;               // WR 唯一标识
+    urma_jfs_wr_flag_t flags;     // 标志位: SIGNALED/INLINE等
+    urma_ordering_t ordering;     // 序保障类型
+    union {
+        struct {
+            urma_target_seg_t *dst_seg;  // 目标segment handle
+            uint64_t dst_addr;           // 目标内存地址
+            uint32_t len;                // 传输长度 (字节)
+        } write;
+        struct {
+            urma_target_seg_t *src_seg;  // 源segment handle
+            uint64_t src_addr;           // 源内存地址
+            uint32_t len;                // 传输长度 (字节)
+        } read;
+        struct {
+            uint32_t inline_len;         // inline数据长度
+            uint8_t *inline_data;        // inline数据指针
+        } send;
+    } op;
+} urma_jfs_wr_t;</code></pre>
+            </div>
+        </details>
+
+        <h3>HixlOneSideOpDesc 参数结构</h3>
+        <details>
+            <summary>展开查看详细参数</summary>
+            <div class="content">
+                <pre><code>struct HixlOneSideOpDesc {
+    void *remote_buf;  // 远端(Server)内存地址 (已注册段内偏移)
+    void *local_buf;   // 本地(Client)内存地址 (已注册段内偏移)
+    uint64_t len;      // 传输长度 (字节)
+};
+
+// PUT语义: local_buf → remote_buf
+// GET语义: remote_buf → local_buf</code></pre>
+            </div>
+        </details>
+    </section>
+
+    <section id="h2d-init">
+        <h2><span class="badge badge-h2d">H2D</span> 模式 - 初始化与建链流程</h2>
+        
+        <div class="mode-card highlight-h2d">
+            <h3>完整初始化流程 (与D2D主要差异)</h3>
+            <p><strong>H2D模式特点:</strong> 数据从Host内存传输到Device内存，使用UBC_CTP协议，执行路径在Device Kernel</p>
+            
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientCreate</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:122-123</span>
+                    <span class="desc">Client端Endpoint: ENDPOINT_LOC_TYPE_HOST (可选)</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientRegMem</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:153</span>
+                    <span class="desc">注册Host内存: CommMem.type = COMM_MEM_TYPE_HOST</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">UrmaEndpoint::RegisterMemory</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoints/urma_endpoint.cc:160-163</span>
+                    <span class="desc">注册Host内存到URMA</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">urma_register_segment</span>
+                    <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h</span>
+                    <span class="desc">注册Host VA → 返回segment handle</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientConnect</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:131</span>
+                    <span class="desc">连接Server，建立Channel</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">Channel::CreateChannel</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/channel.cc:44-84</span>
+                    <span class="desc">选择 AicpuTsUrmaChannel (UBC_CTP协议)</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientGetRemoteMem</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:142-143</span>
+                    <span class="desc">获取Server端Device内存地址</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="h2d-data">
+        <h2><span class="badge badge-h2d">H2D</span> 模式 - 数据传输全链路</h2>
+        
+        <div class="mode-card highlight-h2d">
+            <h3>完整数据传输调用链 (Put操作: Host → Device)</h3>
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientBatchPutAsync</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:171-172</span>
+                    <span class="desc">入口API，local_buf = Host地址, remote_buf = Device地址</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1049-1071</span>
+                    <span class="desc">判断Endpoint类型，选择Device路径</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferDeviceAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:865-923</span>
+                    <span class="desc">后续流程与D2D相同 (TransferPool + Device Kernel)</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::LaunchDeviceChunkedKernels</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:755-768</span>
+                    <span class="desc">按128分片，启动 "HixlBatchPut" kernel</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="badge badge-data">DEVICE KERNEL 执行</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HcommBatchTransferOnThread</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/device/aicpu_ts_urma_channel_kernel.cc</span>
+                    <span class="desc">AICPU TS执行批量传输</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">AicpuTsUrmaChannel::Write</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</span>
+                    <span class="desc">WRITE操作: Host Src → Device Dst</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">urma_post_jetty_send_wr</span>
+                    <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h:854</span>
+                    <span class="desc">opcode = URMA_WR_WRITE, src_seg=Host段, dst_seg=Device段</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_u_post_sq_wr</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">构建SQE，门铃通知硬件</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::CheckStatus</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1120-1146</span>
+                    <span class="desc">轮询host_flag == 1</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="h2d-api">
+        <h2><span class="badge badge-h2d">H2D</span> 模式 - API详细分析</h2>
+        <p><strong>H2D与D2D差异:</strong> 仅内存注册类型不同，其余API完全相同，均使用UBC_CTP协议和Device Kernel路径。</p>
+    </section>
+
+    <section id="d2h-init">
+        <h2><span class="badge badge-d2h">D2H</span> 模式 - 初始化与建链流程</h2>
+        
+        <div class="mode-card highlight-d2h">
+            <h3>完整初始化流程 (与H2D镜像)</h3>
+            <p><strong>D2H模式特点:</strong> 数据从Device内存传输到Host内存，使用UBC_CTP协议，执行路径在Device Kernel</p>
+            
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSServerRegMem</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:89-90</span>
+                    <span class="desc">Server端注册Device内存: CommMem.type = COMM_MEM_TYPE_DEVICE</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientRegMem</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:153</span>
+                    <span class="desc">Client端注册Host内存: CommMem.type = COMM_MEM_TYPE_HOST</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientConnect</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:131</span>
+                    <span class="desc">建立Channel，准备GET操作</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="d2h-data">
+        <h2><span class="badge badge-d2h">D2H</span> 模式 - 数据传输全链路</h2>
+        
+        <div class="mode-card highlight-d2h">
+            <h3>完整数据传输调用链 (Get操作: Device → Host)</h3>
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientBatchGetAsync</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:182-183</span>
+                    <span class="desc">入口API，remote_buf = Device地址, local_buf = Host地址</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1049-1071</span>
+                    <span class="desc">is_get = true → GET操作</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferDeviceAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:865-923</span>
+                    <span class="desc">TransferPool slot分配</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::LaunchDeviceChunkedKernels</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:755-768</span>
+                    <span class="desc">启动 "HixlBatchGet" kernel</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="badge badge-data">DEVICE KERNEL 执行</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HcommBatchTransferOnThread</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/device/aicpu_ts_urma_channel_kernel.cc</span>
+                    <span class="desc">AICPU TS执行批量GET</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">AicpuTsUrmaChannel::Read</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</span>
+                    <span class="desc">READ操作: Device Src → Host Dst</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">urma_post_jetty_send_wr</span>
+                    <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h:854</span>
+                    <span class="desc">opcode = URMA_WR_READ, src_seg=Device段, dst_seg=Host段</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_fill_read_sqe</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">填充READ SQE</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::CheckStatus</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1120-1146</span>
+                    <span class="desc">轮询host_flag == 1</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="d2h-api">
+        <h2><span class="badge badge-d2h">D2H</span> 模式 - API详细分析</h2>
+        <p><strong>D2H与H2D差异:</strong> 仅操作方向不同 (READ vs WRITE)，使用相同的API和UBC_CTP协议。</p>
+    </section>
+
+    <section id="h2h-init">
+        <h2><span class="badge badge-h2h">H2H</span> 模式 - 初始化与建链流程</h2>
+        
+        <div class="mode-card highlight-h2h">
+            <h3>完整初始化流程 (Host路径)</h3>
+            <p><strong>H2H模式特点:</strong> 数据在Host间直接传输，使用UBC_CTP协议，执行路径在Host CPU (无Kernel)</p>
+            
+            <details open>
+                <summary>Server端初始化 (Host Endpoint)</summary>
+                <div class="content">
+                    <div class="chain">
+                        <div class="chain-node">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSServerCreate</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:78-79</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSServer::Initialize</span>
+                            <span class="file">hixl/src/hixl/cs/hixl_cs_server.cc:130-158</span>
+                            <span class="desc">Endpoint.locType = ENDPOINT_LOC_TYPE_HOST</span>
+                        </div>
+                        <div class="chain-node l3">
+                            <span class="layer-tag layer-hcomm">HCOMM</span>
+                            <span class="fn">HcommEndpointCreate</span>
+                            <span class="file">hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:207-252</span>
+                            <span class="desc">创建UrmaEndpoint (Host类型)</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSServerRegMem</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:89-90</span>
+                            <span class="desc">注册Host内存: COMM_MEM_TYPE_HOST</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSServerListen</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:98</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details>
+                <summary>Client端初始化 (Host Endpoint)</summary>
+                <div class="content">
+                    <div class="chain">
+                        <div class="chain-node">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSClientCreate</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:122-123</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSClient::InitBaseClient</span>
+                            <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc</span>
+                            <span class="desc">初始化Endpoint，不初始化Device资源</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSClientRegMem</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:153</span>
+                            <span class="desc">注册Host内存</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSClientConnect</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:131</span>
+                        </div>
+                        <div class="chain-node l3">
+                            <span class="layer-tag layer-hcomm">HCOMM</span>
+                            <span class="fn">HcommChannelCreate</span>
+                            <span class="file">hcomm/src/framework/next/comms/api_c_adpt/hcomm_c_adpt.cc:60-62</span>
+                            <span class="desc">创建HostCpuUrmaChannel</span>
+                        </div>
+                        <div class="chain-node l4">
+                            <span class="layer-tag layer-hcomm">HCOMM</span>
+                            <span class="fn">HostCpuUrmaChannel::Init</span>
+                            <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/host/host_cpu_urma_channel.cc</span>
+                            <span class="desc">初始化Host CPU URMA通道</span>
+                        </div>
+                        <div class="chain-node l2">
+                            <span class="layer-tag layer-hixl">HIXL</span>
+                            <span class="fn">HixlCSClientGetRemoteMem</span>
+                            <span class="file">hixl/include/cs/hixl_cs.h:142-143</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <section id="h2h-data">
+        <h2><span class="badge badge-h2h">H2H</span> 模式 - 数据传输全链路</h2>
+        
+        <div class="mode-card highlight-h2h">
+            <h3>完整数据传输调用链 (Put操作)</h3>
+            <div class="chain">
+                <div class="chain-node">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClientBatchPutAsync</span>
+                    <span class="file">hixl/include/cs/hixl_cs.h:171-172</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1049-1071</span>
+                    <span class="desc">判断是Host Endpoint → 走Host路径</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferHostAsync</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:518-568</span>
+                    <span class="desc">按kMaxKernelBatchSize=128分片</span>
+                </div>
+                <div class="chain-node l3">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::BatchTransferTask</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc</span>
+                    <span class="desc">逐条调用TransferWithRetry</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::TransferWithRetry</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:451-499</span>
+                    <span class="desc">重试机制，超时20分钟</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HcommProxy::WriteNbiOnThread</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HcommWriteNbiOnThread</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/host/host_cpu_urma_channel.cc</span>
+                    <span class="desc">参数: thread=0, channel, dst, src, len</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-hcomm">HCOMM</span>
+                    <span class="fn">HostCpuUrmaChannel::Write</span>
+                    <span class="file">hcomm/src/framework/next/comms/endpoint_pairs/channels/host/host_cpu_urma_channel.cc</span>
+                    <span class="desc">Host CPU URMA Channel写入</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">urma_post_jetty_send_wr</span>
+                    <span class="file">umdk/src/urma/lib/urma/core/include/urma_api.h:854</span>
+                </div>
+                <div class="chain-node l4">
+                    <span class="layer-tag layer-urma">URMA</span>
+                    <span class="fn">udma_u_post_sq_wr</span>
+                    <span class="file">umdk/src/urma/provider/udma/udma_u_jfs.c</span>
+                    <span class="desc">构建SQE，门铃通知硬件</span>
+                </div>
+                
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HcommProxy::ReadNbiOnThread</span>
+                    <span class="desc">读取远端flag地址</span>
+                </div>
+                <div class="chain-node l2">
+                    <span class="layer-tag layer-hixl">HIXL</span>
+                    <span class="fn">HixlCSClient::CheckStatus</span>
+                    <span class="file">hixl/src/hixl/cs/hixl_cs_client.cc:1120-1146</span>
+                    <span class="desc">轮询flag_queue_[index] == kFlagDoneValue (1)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="h2h-api">
+        <h2><span class="badge badge-h2h">H2H</span> 模式 - API详细分析</h2>
+        
+        <h3>关键差异API</h3>
+        <table class="api-table">
+            <tr>
+                <th>API</th>
+                <th>文件位置</th>
+                <th>功能</th>
+            </tr>
+            <tr>
+                <td><code>BatchTransferHostAsync</code></td>
+                <td>hixl/src/hixl/cs/hixl_cs_client.cc:518-568</td>
+                <td>Host路径传输分发</td>
+            </tr>
+            <tr>
+                <td><code>TransferWithRetry</code></td>
+                <td>hixl/src/hixl/cs/hixl_cs_client.cc:451-499</td>
+                <td>带重试的传输，HCCL_E_AGAIN时重试</td>
+            </tr>
+            <tr>
+                <td><code>HcommWriteNbiOnThread</code></td>
+                <td>hcomm/src/framework/next/comms/endpoint_pairs/channels/host/host_cpu_urma_channel.cc</td>
+                <td>Host侧非阻塞写入</td>
+            </tr>
+            <tr>
+                <td><code>HcommReadNbiOnThread</code></td>
+                <td>hcomm/src/framework/next/comms/endpoint_pairs/channels/host/host_cpu_urma_channel.cc</td>
+                <td>Host侧非阻塞读取(用于读flag)</td>
+            </tr>
+        </table>
+    </section>
+
+    <section id="compare">
+        <h2>四种通信模式对比分析</h2>
+        
+        <h3>全维度对比表</h3>
+        <table>
+            <tr>
+                <th>维度</th>
+                <th><span class="badge badge-d2d">D2D</span> Device→Device</th>
+                <th><span class="badge badge-h2d">H2D</span> Host→Device</th>
+                <th><span class="badge badge-d2h">D2H</span> Device→Host</th>
+                <th><span class="badge badge-h2h">H2H</span> Host→Host</th>
+            </tr>
+            <tr>
+                <td><strong>HIXL分发函数</strong></td>
+                <td>BatchTransferDeviceAsync</td>
+                <td>BatchTransferDeviceAsync</td>
+                <td>BatchTransferDeviceAsync</td>
+                <td>BatchTransferHostAsync</td>
+            </tr>
+            <tr>
+                <td><strong>传输介质</strong></td>
+                <td>UB Kernel (AICPU)</td>
+                <td>UB Kernel (AICPU)</td>
+                <td>UB Kernel (AICPU)</td>
+                <td>Host CPU直接操作</td>
+            </tr>
+            <tr>
+                <td><strong>CommEngine类型</strong></td>
+                <td>COMM_ENGINE_AICPU_TS</td>
+                <td>COMM_ENGINE_AICPU_TS</td>
+                <td>COMM_ENGINE_AICPU_TS</td>
+                <td>COMM_ENGINE_CPU</td>
+            </tr>
+            <tr>
+                <td><strong>HCOMM Channel类型</strong></td>
+                <td>AicpuTsUrmaChannel</td>
+                <td>AicpuTsUrmaChannel</td>
+                <td>AicpuTsUrmaChannel</td>
+                <td>HostCpuUrmaChannel</td>
+            </tr>
+            <tr>
+                <td><strong>协议</strong></td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+                <td>COMM_PROTOCOL_UBC_CTP</td>
+            </tr>
+            <tr>
+                <td><strong>数据面入口</strong></td>
+                <td>HcommBatchTransferOnThread (Device)</td>
+                <td>HcommBatchTransferOnThread (Device)</td>
+                <td>HcommBatchTransferOnThread (Device)</td>
+                <td>HcommWriteNbiOnThread (Host)</td>
+            </tr>
+            <tr>
+                <td><strong>内存类型</strong></td>
+                <td>Device → Device</td>
+                <td>Host → Device</td>
+                <td>Device → Host</td>
+                <td>Host → Host</td>
+            </tr>
+            <tr>
+                <td><strong>URMA操作</strong></td>
+                <td>urma_post_jetty_send_wr (PUT=WRITE)</td>
+                <td>urma_post_jetty_send_wr (PUT=WRITE)</td>
+                <td>urma_post_jetty_send_wr (GET=READ)</td>
+                <td>urma_post_jetty_send_wr (PUT=WRITE)</td>
+            </tr>
+            <tr>
+                <td><strong>门铃路径</strong></td>
+                <td>udma_write_dsqe / udma_update_sq_db</td>
+                <td>udma_write_dsqe / udma_update_sq_db</td>
+                <td>udma_write_dsqe / udma_update_sq_db</td>
+                <td>udma_write_dsqe / udma_update_sq_db</td>
+            </tr>
+            <tr>
+                <td><strong>Notify机制</strong></td>
+                <td>最后一片: remote_flag_addr + local_flag_addr + notify_id</td>
+                <td>最后一片: remote_flag_addr + local_notify</td>
+                <td>最后一片: remote_flag_addr + local_notify</td>
+                <td>ReadNbiOnThread读远端flag; flag_queue轮询</td>
+            </tr>
+            <tr>
+                <td><strong>完成检测</strong></td>
+                <td>CheckStatusDevice: host_flag == 1</td>
+                <td>CheckStatusDevice: host_flag == 1</td>
+                <td>CheckStatusDevice: host_flag == 1</td>
+                <td>CheckStatusHost: flag_queue_[index] == 1</td>
+            </tr>
+            <tr>
+                <td><strong>分片大小</strong></td>
+                <td>kMaxKernelBatchSize = 128</td>
+                <td>kMaxKernelBatchSize = 128</td>
+                <td>kMaxKernelBatchSize = 128</td>
+                <td>kMaxKernelBatchSize = 128</td>
+            </tr>
+            <tr>
+                <td><strong>Kernel名称</strong></td>
+                <td>"HixlBatchPut" / "HixlBatchGet"</td>
+                <td>"HixlBatchPut"</td>
+                <td>"HixlBatchGet"</td>
+                <td>无Kernel (Host CPU)</td>
+            </tr>
+            <tr>
+                <td><strong>TransferPool</strong></td>
+                <td>需要 (size = 128)</td>
+                <td>需要 (size = 128)</td>
+                <td>需要 (size = 128)</td>
+                <td>不需要</td>
+            </tr>
+            <tr>
+                <td><strong>Flag队列</strong></td>
+                <td>不需要</td>
+                <td>不需要</td>
+                <td>不需要</td>
+                <td>需要 (InitFlagQueue初始化)</td>
+            </tr>
+            <tr>
+                <td><strong>重试机制</strong></td>
+                <td>无 (Kernel内部处理)</td>
+                <td>无 (Kernel内部处理)</td>
+                <td>无 (Kernel内部处理)</td>
+                <td>有 (TransferWithRetry, 20分钟超时)</td>
+            </tr>
+            <tr>
+                <td><strong>目标产品</strong></td>
+                <td>Ascend 950PR / 950DT</td>
+                <td>Ascend 950PR / 950DT</td>
+                <td>Ascend 950PR / 950DT</td>
+                <td>Ascend 950PR / 950DT</td>
+            </tr>
+        </table>
+    </section>
+
+    <section id="summary">
+        <h2>总结</h2>
+        
+        <h3>关键共同点</h3>
+        <ul>
+            <li><strong>协议统一:</strong> 四种模式均使用 <strong>COMM_PROTOCOL_UBC_CTP</strong> (华为统一总线CTP协议)</li>
+            <li><strong>三层架构:</strong> HIXL → HCOMM → URMA 层次完全一致</li>
+            <li><strong>底层URMA统一:</strong> 最终都是通过 <code>urma_post_jetty_send_wr()</code> → UDMA驱动</li>
+            <li><strong>门铃机制:</strong> 均使用 DSQE优化路径 或 MMIO PI写入 通知硬件</li>
+            <li><strong>分片大小:</strong> kMaxKernelBatchSize = 128</li>
+            <li><strong>API接口:</strong> 均遵循 <code>hixl/include/cs/hixl_cs.h</code> 定义的接口规范</li>
+        </ul>
+
+        <h3>关键差异点</h3>
+        <ul>
+            <li><strong>执行位置:</strong> D2D/H2D/D2H 在 Device Kernel执行，H2H 在 Host CPU直接执行</li>
+            <li><strong>Channel类型:</strong> AicpuTsUrmaChannel vs HostCpuUrmaChannel</li>
+            <li><strong>内存类型:</strong> COMM_MEM_TYPE_DEVICE vs COMM_MEM_TYPE_HOST</li>
+            <li><strong>完成检测:</strong> Device路径通过 host_flag，Host路径通过 flag_queue</li>
+            <li><strong>资源管理:</strong> Device路径需要 TransferPool，Host路径需要 FlagQueue</li>
+            <li><strong>重试机制:</strong> Host路径有20分钟超时重试，Device路径无</li>
+        </ul>
+
+    </section>
+
+</main>
+
+</body>
+</html>
