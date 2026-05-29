@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIXL URMA - 四种通信模式全链路时序图索引</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        header {
+            background: linear-gradient(135deg, #161b22, #0d1117);
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 1px solid #30363d;
+        }
+        h1 {
+            color: #58a6ff;
+            margin: 0 0 10px 0;
+            font-size: 32px;
+        }
+        h2 {
+            color: #8b949e;
+            font-size: 16px;
+            font-weight: 400;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            border-color: #58a6ff;
+        }
+        .card-d2d { border-left: 4px solid #f78166; }
+        .card-h2d { border-left: 4px solid #d2a8ff; }
+        .card-d2h { border-left: 4px solid #7ee787; }
+        .card-h2h { border-left: 4px solid #ffa657; }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .badge-d2d { background: #f78166; color: #000; }
+        .badge-h2d { background: #d2a8ff; color: #000; }
+        .badge-d2h { background: #7ee787; color: #000; }
+        .badge-h2h { background: #ffa657; color: #000; }
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .card-desc {
+            color: #8b949e;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #58a6ff;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .card-link:hover {
+            text-decoration: underline;
+        }
+        .info-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px;
+            margin-top: 40px;
+        }
+        .info-section h3 {
+            color: #58a6ff;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .info-section ul {
+            padding-left: 20px;
+            color: #8b949e;
+            line-height: 1.8;
+        }
+        .product-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #1a2818;
+            color: #56d364;
+            border: 1px solid #56d364;
+            margin-right: 8px;
+        }
+        .tech-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #21262d;
+            color: #8b949e;
+            margin: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        th {
+            background: #21262d;
+            text-align: left;
+            padding: 12px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #30363d;
+            color: #8b949e;
+        }
+        tr:hover td {
+            background: #1a1d23;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🚀 HIXL URMA 四种通信模式</h1>
+        <h2>全链路时序图 - 管控面 + 数据面</h2>
+        <div style="margin-top: 20px;">
+            <span class="product-badge">Ascend 950PR</span>
+            <span class="product-badge">Ascend 950DT</span>
+            <span class="tech-tag">COMM_PROTOCOL_UBC_CTP</span>
+            <span class="tech-tag">URMA + UDMA</span>
+            <span class="tech-tag">A5 代际</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <h3 style="color: #58a6ff; font-size: 24px; margin-bottom: 8px;">📚 四种通信模式时序图</h3>
+        <p style="color: #8b949e; margin-bottom: 0;">点击卡片查看详细时序图</p>
+        
+        <div class="grid">
+            <div class="card card-d2d" onclick="location.href='d2d_sequence_diagram.html'">
+                <div class="card-header">
+                    <span class="badge badge-d2d">D2D</span>
+                    <span class="card-title">Device to Device</span>
+                </div>
+                <p class="card-desc">
+                    Device内存之间的直接通信，性能最优，通过AICPU TS引擎执行，无需Host CPU参与
+                </p>
+                <div>
+                    <span class="tech-tag">AicpuTsUrmaChannel</span>
+                    <span class="tech-tag">TransferPool</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <a href="d2d_sequence_diagram.html" class="card-link">
+                        ➜ 查看D2D时序图
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-h2d" onclick="location.href='h2d_sequence_diagram.html'">
+                <div class="card-header">
+                    <span class="badge badge-h2d">H2D</span>
+                    <span class="card-title">Host to Device</span>
+                </div>
+                <p class="card-desc">
+                    从Host内存写入到Device内存，Host端作为发送方，Device端作为接收方
+                </p>
+                <div>
+                    <span class="tech-tag">URMA_WR_WRITE</span>
+                    <span class="tech-tag">Device Kernel</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <a href="h2d_sequence_diagram.html" class="card-link">
+                        ➜ 查看H2D时序图
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-d2h" onclick="location.href='d2h_sequence_diagram.html'">
+                <div class="card-header">
+                    <span class="badge badge-d2h">D2H</span>
+                    <span class="card-title">Device to Host</span>
+                </div>
+                <p class="card-desc">
+                    从Device内存读取到Host内存，Host端作为接收方，Device端作为发送方
+                </p>
+                <div>
+                    <span class="tech-tag">URMA_WR_READ</span>
+                    <span class="tech-tag">Device Kernel</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <a href="d2h_sequence_diagram.html" class="card-link">
+                        ➜ 查看D2H时序图
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-h2h" onclick="location.href='h2h_sequence_diagram.html'">
+                <div class="card-header">
+                    <span class="badge badge-h2h">H2H</span>
+                    <span class="card-title">Host to Host</span>
+                </div>
+                <p class="card-desc">
+                    Host内存之间的直接通信，无需Device Kernel，通过Host CPU直接操作URMA
+                </p>
+                <div>
+                    <span class="tech-tag">HostCpuUrmaChannel</span>
+                    <span class="tech-tag">TransferWithRetry</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <a href="h2h_sequence_diagram.html" class="card-link">
+                        ➜ 查看H2H时序图
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>📋 四种模式对比总览</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>对比项</th>
+                        <th><span class="badge badge-d2d">D2D</span></th>
+                        <th><span class="badge badge-h2d">H2D</span></th>
+                        <th><span class="badge badge-d2h">D2H</span></th>
+                        <th><span class="badge badge-h2h">H2H</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>执行位置</strong></td>
+                        <td>Device Kernel</td>
+                        <td>Device Kernel</td>
+                        <td>Device Kernel</td>
+                        <td>Host CPU</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Channel类型</strong></td>
+                        <td>AicpuTsUrmaChannel</td>
+                        <td>AicpuTsUrmaChannel</td>
+                        <td>AicpuTsUrmaChannel</td>
+                        <td>HostCpuUrmaChannel</td>
+                    </tr>
+                    <tr>
+                        <td><strong>资源池</strong></td>
+                        <td>TransferPool</td>
+                        <td>TransferPool</td>
+                        <td>TransferPool</td>
+                        <td>FlagQueue</td>
+                    </tr>
+                    <tr>
+                        <td><strong>重试机制</strong></td>
+                        <td>无</td>
+                        <td>无</td>
+                        <td>无</td>
+                        <td>TransferWithRetry (20分钟)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>协议</strong></td>
+                        <td colspan="4" style="text-align: center; font-weight: 600; color: #56d364;">COMM_PROTOCOL_UBC_CTP</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="info-section">
+            <h3>🔗 其他文档</h3>
+            <ul>
+                <li><a href="hixl_urma_full_analysis.html" style="color: #58a6ff;">HIXL URMA 全链路完整分析文档</a> - 四种模式的完整分析报告</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h3>📎 文件结构</h3>
+            <ul>
+                <li><code>index.html</code> - 当前页面，所有时序图的索引入口</li>
+                <li><code>d2d_sequence_diagram.html</code> - D2D模式时序图</li>
+                <li><code>h2d_sequence_diagram.html</code> - H2D模式时序图</li>
+                <li><code>d2h_sequence_diagram.html</code> - D2H模式时序图</li>
+                <li><code>h2h_sequence_diagram.html</code> - H2H模式时序图</li>
+                <li><code>hixl_urma_full_analysis.html</code> - 全链路完整分析文档</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer style="text-align: center; padding: 30px; color: #8b949e; border-top: 1px solid #30363d; margin-top: 60px;">
+        <p>📅 生成日期: 2026-05-29</p>
+        <p style="font-size: 12px; margin-top: 8px;">本时序图基于代码库分析生成，仅供参考，实际流程以最新代码为准</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H2D模式 - HIXL URMA 全链路时序图</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #d2a8ff;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #f0883e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .info {
+            background: #161b22;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .mermaid {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            margin-bottom: 20px;
+        }
+        .error-msg {
+            background: #2a1a1a;
+            border: 1px solid #f78166;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 H2D模式 - HIXL URMA 全链路时序图</h1>
+        
+        <div class="info">
+            <h2>📋 说明</h2>
+            <p><strong>模式:</strong> Host to Device (H2D) - 从Host内存写入到Device内存</p>
+            <p><strong>协议:</strong> COMM_PROTOCOL_UBC_CTP (华为统一总线CTP协议)</p>
+            <p><strong>执行位置:</strong> Device侧AICPU TS引擎</p>
+            <p><strong>产品支持:</strong> Ascend 950PR / 950DT</p>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #79c0ff;"></div>
+                    <span>管控面操作</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #f0883e;"></div>
+                    <span>HCOMM层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #56d364;"></div>
+                    <span>URMA驱动层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #ff7b72;"></div>
+                    <span>数据面传输</span>
+                </div>
+            </div>
+        </div>
+
+        <h2>1️⃣ 初始化阶段 - Server端</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant User as 应用程序
+                participant HIXL_S as HIXL CS Server
+                participant HCOMM_S as HCOMM Endpoint (Server端)
+                participant URMA_S as URMA Context (Server端)
+                
+                User->>HIXL_S: HixlCSServerCreate()
+                Note over HIXL_S: Server端Endpoint为Device类型
+                HIXL_S->>HIXL_S: HixlCSServer::Initialize()
+                HIXL_S->>HCOMM_S: HcommEndpointCreate()
+                Note over HCOMM_S: locType=ENDPOINT_LOC_TYPE_DEVICE
+                HCOMM_S->>URMA_S: urma_init()
+                URMA_S->>URMA_S: urma_create_context()
+                
+                User->>HIXL_S: HixlCSServerRegMem()
+                Note over HIXL_S: 注册Device内存
+                HIXL_S->>HCOMM_S: HcommRegisterMemory()
+                Note over HCOMM_S: CommMem.type=COMM_MEM_TYPE_DEVICE
+                HCOMM_S->>URMA_S: urma_register_segment()
+                
+                User->>HIXL_S: HixlCSServerListen()
+        </div>
+
+        <h2>2️⃣ 初始化阶段 - Client端</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant User as 应用程序
+                participant HIXL_C as HIXL CS Client
+                participant HCOMM_C as HCOMM Endpoint (Client端)
+                participant URMA_C as URMA Context (Client端)
+                
+                User->>HIXL_C: HixlCSClientCreate()
+                Note over HIXL_C: Client端Endpoint可以是Host类型
+                HIXL_C->>HIXL_C: HixlCSClient::InitBaseClient()
+                HIXL_C->>HIXL_C: HixlCSClient::InitDeviceResource()
+                Note over HIXL_C: 初始化TransferPool
+                
+                User->>HIXL_C: HixlCSClientRegMem()
+                Note over HIXL_C: 注册Client端Host内存
+                HIXL_C->>HCOMM_C: HcommRegisterMemory()
+                Note over HCOMM_C: CommMem.type=COMM_MEM_TYPE_HOST
+                HCOMM_C->>URMA_C: urma_register_segment()
+                
+                User->>HIXL_C: HixlCSClientConnect()
+                HIXL_C->>HCOMM_C: HcommChannelCreate()
+                Note over HCOMM_C: 创建AicpuTsUrmaChannel
+                HCOMM_C->>URMA_C: urma_create_jetty()
+                
+                User->>HIXL_C: HixlCSClientGetRemoteMem()
+        </div>
+
+        <h2>3️⃣ 数据传输阶段 (Put操作: Host → Device)</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant User as 应用程序
+                participant HIXL_C as HIXL CS Client
+                participant HCOMM_C as HCOMM Endpoint (Client端)
+                participant URMA_C as URMA Context (Client端)
+                participant HW as 硬件 (UDMA)
+                
+                User->>HIXL_C: HixlCSClientBatchPutAsync()
+                Note over HIXL_C: local_buf=Host地址, remote_buf=Device地址
+                HIXL_C->>HIXL_C: HixlCSClient::BatchTransferAsync()
+                Note over HIXL_C: 判断Endpoint类型
+                HIXL_C->>HIXL_C: HixlCSClient::BatchTransferDeviceAsync()
+                Note over HIXL_C: 获取TransferPool slot
+                HIXL_C->>HIXL_C: HixlCSClient::LaunchDeviceChunkedKernels()
+                Note over HIXL_C: 按128分片,启动 "HixlBatchPut" kernel
+                
+                Note over HIXL_C,HW: === 进入Device Kernel执行 ===
+                HIXL_C->>HCOMM_C: HcommBatchTransferOnThread()
+                Note over HCOMM_C: AICPU TS引擎批量传输
+                HCOMM_C->>HCOMM_C: AicpuTsUrmaChannel::Write()
+                Note over HCOMM_C: WRITE操作: Host Src → Device Dst
+                
+                HCOMM_C->>URMA_C: urma_post_jetty_send_wr()
+                Note over URMA_C: opcode=URMA_WR_WRITE
+                Note over URMA_C: src_seg=Host段, dst_seg=Device段
+                URMA_C->>URMA_C: udma_u_post_sq_wr()
+                URMA_C->>URMA_C: udma_fill_write_sqe()
+                URMA_C->>URMA_C: UDMA_TO_DEVICE_BARRIER()
+                
+                URMA_C->>HW: udma_write_dsqe()
+                Note over HW: 🔥 门铃通知硬件
+                HW->>HW: 硬件执行UDMA数据传输
+                Note over HW: 从Client Host → Server Device
+                
+                Note over HIXL_C,HW: === 完成检测 ===
+                User->>HIXL_C: HixlCSClientQueryCompleteStatus()
+                HIXL_C->>HIXL_C: HixlCSClient::CheckStatus()
+                Note over HIXL_C: 轮询host_flag == 1
+        </div>
+
+        <h2>4️⃣ 内存注册详细流程</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant HIXL as HIXL CS
+                participant HCOMM as HCOMM
+                participant URMA as URMA
+                
+                HIXL->>HIXL: posix_memalign()
+                Note over HIXL: 分配Host对齐内存
+                HIXL->>HCOMM: HcommRegisterMemory()
+                Note over HCOMM: 注册内存段
+                HCOMM->>HCOMM: UrmaEndpoint::RegisterMemory()
+                HCOMM->>URMA: urma_register_segment()
+                Note over URMA: 返回segment handle
+                URMA-->>HCOMM: 成功返回
+                HCOMM-->>HIXL: 注册完成
+        </div>
+
+        <div class="info">
+            <h2>📎 关键接口文件位置</h2>
+            <ul>
+                <li><code>hixl/include/cs/hixl_cs.h:78-215</code> - HIXL CS接口定义</li>
+                <li><code>hixl/src/hixl/cs/hixl_cs_client.cc:865-923</code> - BatchTransferDeviceAsync</li>
+                <li><code>hcomm/src/framework/next/comms/endpoints/urma_endpoint.cc:160-163</code> - RegisterMemory</li>
+                <li><code>umdk/src/urma/lib/urma/core/include/urma_api.h</code> - urma_register_segment</li>
+                <li><code>hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</code> - AicpuTsUrmaChannel</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 使用稳定的 Mermaid CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: 'dark',
+                    sequence: {
+                        showSequenceNumbers: true,
+                        wrap: true,
+                        useMaxWidth: false
+                    },
+                    securityLevel: 'loose'
+                });
+                console.log('✅ Mermaid 初始化成功');
+            } catch (error) {
+                console.error('❌ Mermaid 初始化失败:', error);
+                const divs = document.querySelectorAll('.mermaid');
+                divs.forEach(div => {
+                    div.innerHTML = '<div class="error-msg">❌ Mermaid 渲染失败: ' + error.message + '</div>';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

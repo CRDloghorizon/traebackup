@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D2H模式 - HIXL URMA 全链路时序图</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #7ee787;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #f0883e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .info {
+            background: #161b22;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .mermaid {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            margin-bottom: 20px;
+        }
+        .error-msg {
+            background: #2a1a1a;
+            border: 1px solid #f78166;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 D2H模式 - HIXL URMA 全链路时序图</h1>
+        
+        <div class="info">
+            <h2>📋 说明</h2>
+            <p><strong>模式:</strong> Device to Host (D2H) - 从Device内存读取到Host内存</p>
+            <p><strong>协议:</strong> COMM_PROTOCOL_UBC_CTP (华为统一总线CTP协议)</p>
+            <p><strong>执行位置:</strong> Device侧AICPU TS引擎</p>
+            <p><strong>产品支持:</strong> Ascend 950PR / 950DT</p>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #79c0ff;"></div>
+                    <span>管控面操作</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #f0883e;"></div>
+                    <span>HCOMM层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #56d364;"></div>
+                    <span>URMA驱动层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #ff7b72;"></div>
+                    <span>数据面传输</span>
+                </div>
+            </div>
+        </div>
+
+        <h2>1️⃣ 初始化阶段</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant User as 应用程序
+                participant HIXL_S as HIXL CS Server
+                participant HIXL_C as HIXL CS Client
+                participant HCOMM as HCOMM
+                participant URMA as URMA
+                
+                User->>HIXL_S: HixlCSServerCreate()
+                Note over HIXL_S: Server端注册Device内存
+                HIXL_S->>HIXL_S: HixlCSServerRegMem()
+                Note over HIXL_S: CommMem.type=COMM_MEM_TYPE_DEVICE
+                HIXL_S->>HIXL_S: HixlCSServerListen()
+                
+                User->>HIXL_C: HixlCSClientCreate()
+                Note over HIXL_C: Client端注册Host内存
+                HIXL_C->>HIXL_C: HixlCSClientRegMem()
+                Note over HIXL_C: CommMem.type=COMM_MEM_TYPE_HOST
+                HIXL_C->>HIXL_C: HixlCSClientConnect()
+                HIXL_C->>HCOMM: HcommChannelCreate()
+                Note over HCOMM: 创建AicpuTsUrmaChannel
+                HCOMM->>URMA: urma_create_jetty()
+                
+                User->>HIXL_C: HixlCSClientGetRemoteMem()
+        </div>
+
+        <h2>2️⃣ 数据传输阶段 (Get操作: Device → Host)</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant User as 应用程序
+                participant HIXL_C as HIXL CS Client
+                participant HCOMM_C as HCOMM Endpoint (Client端)
+                participant URMA_C as URMA Context (Client端)
+                participant HW as 硬件 (UDMA)
+                
+                User->>HIXL_C: HixlCSClientBatchGetAsync()
+                Note over HIXL_C: remote_buf=Device地址, local_buf=Host地址
+                HIXL_C->>HIXL_C: HixlCSClient::BatchTransferAsync(is_get=true)
+                Note over HIXL_C: GET操作,读取远端数据到本地
+                HIXL_C->>HIXL_C: HixlCSClient::BatchTransferDeviceAsync()
+                HIXL_C->>HIXL_C: HixlCSClient::LaunchDeviceChunkedKernels()
+                Note over HIXL_C: 启动 "HixlBatchGet" kernel
+                
+                Note over HIXL_C,HW: === 进入Device Kernel执行 ===
+                HIXL_C->>HCOMM_C: HcommBatchTransferOnThread()
+                HCOMM_C->>HCOMM_C: AicpuTsUrmaChannel::Read()
+                Note over HCOMM_C: READ操作: Device Src → Host Dst
+                
+                HCOMM_C->>URMA_C: urma_post_jetty_send_wr()
+                Note over URMA_C: opcode=URMA_WR_READ
+                Note over URMA_C: src_seg=Device段, dst_seg=Host段
+                URMA_C->>URMA_C: udma_u_post_sq_wr()
+                URMA_C->>URMA_C: udma_u_post_one_wr()
+                URMA_C->>URMA_C: udma_fill_read_sqe()
+                Note over URMA_C: 填充READ SGE
+                URMA_C->>URMA_C: UDMA_TO_DEVICE_BARRIER()
+                
+                URMA_C->>HW: udma_write_dsqe() / udma_update_sq_db()
+                Note over HW: 🔥 门铃通知硬件
+                HW->>HW: 硬件执行UDMA数据读取
+                Note over HW: 从Server Device → Client Host
+                
+                Note over HIXL_C,HW: === 完成检测 ===
+                User->>HIXL_C: HixlCSClientQueryCompleteStatus()
+                HIXL_C->>HIXL_C: HixlCSClient::CheckStatus()
+                Note over HIXL_C: 轮询host_flag == 1
+        </div>
+
+        <h2>3️⃣ URMA READ操作详细流程</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant HCOMM as HCOMM
+                participant URMA as URMA
+                participant HW as 硬件 (UDMA)
+                
+                HCOMM->>URMA: urma_jfs_wr_t 结构体准备
+                Note over URMA: opcode=URMA_WR_READ
+                Note over URMA: sgl=[本地Host地址]
+                Note over URMA: read.src_seg=远端Device段
+                Note over URMA: read.src_addr=远端Device地址
+                Note over URMA: read.len=传输长度
+                
+                HCOMM->>URMA: urma_post_jetty_send_wr()
+                URMA->>URMA: udma_u_post_sq_wr()
+                Note over URMA: 加自旋锁,避免并发
+                URMA->>URMA: udma_u_post_one_wr()
+                Note over URMA: 转换WR到SQE
+                URMA->>URMA: udma_fill_read_sqe()
+                Note over URMA: 填充SQE的READ字段
+                URMA->>URMA: UDMA_TO_DEVICE_BARRIER()
+                Note over URMA: ARM dmb st,确保SQE可见
+                
+                URMA->>HW: udma_write_dsqe()
+                Note over HW: 优化路径,直接写DSQE
+                alt DSQE路径不可用
+                    URMA->>HW: udma_update_sq_db()
+                    Note over HW: MMIO写入Producer Index
+                end
+                
+                HW->>HW: 硬件UDMA控制器处理
+                Note over HW: 从Device内存读取数据
+                Note over HW: 写入到Host内存
+        </div>
+
+        <div class="info">
+            <h2>📎 关键接口文件位置</h2>
+            <ul>
+                <li><code>hixl/include/cs/hixl_cs.h:182-183</code> - HixlCSClientBatchGetAsync</li>
+                <li><code>hixl/src/hixl/cs/hixl_cs_client.cc:1049-1071</code> - BatchTransferAsync</li>
+                <li><code>umdk/src/urma/lib/urma/core/include/urma_api.h:854</code> - urma_post_jetty_send_wr</li>
+                <li><code>umdk/src/urma/provider/udma/udma_u_jfs.c</code> - udma_fill_read_sqe</li>
+                <li><code>hcomm/src/framework/next/comms/endpoint_pairs/channels/aicpu/aicpu_ts_urma_channel.cc</code> - Read操作</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 使用稳定的 Mermaid CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: 'dark',
+                    sequence: {
+                        showSequenceNumbers: true,
+                        wrap: true,
+                        useMaxWidth: false
+                    },
+                    securityLevel: 'loose'
+                });
+                console.log('✅ Mermaid 初始化成功');
+            } catch (error) {
+                console.error('❌ Mermaid 初始化失败:', error);
+                const divs = document.querySelectorAll('.mermaid');
+                divs.forEach(div => {
+                    div.innerHTML = '<div class="error-msg">❌ Mermaid 渲染失败: ' + error.message + '</div>';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
